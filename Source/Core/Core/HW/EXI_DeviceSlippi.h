@@ -21,7 +21,7 @@
 #include "Core/Slippi/SlippiMatchmaking.h"
 #include "Core/Slippi/SlippiNetplay.h"
 #include "Core/Slippi/SlippiReplayComm.h"
-#include "Core/Slippi/SlippicommServer.h"
+#include "Core/Slippi/SlippiSpectate.h"
 #include "Core/Slippi/SlippiSavestate.h"
 #include "Core/Slippi/SlippiUser.h"
 

@@ -5,6 +5,9 @@
 #include <thread>
 #include <mutex>
 
+#include <enet/enet.h>
+#include "slippicomm.pb.h"
+
 // Sockets in windows are unsigned
 #ifdef _WIN32
 #include <winsock2.h>
@@ -13,6 +16,9 @@
 #include <sys/select.h>
 typedef int SOCKET;
 #endif
+
+#define MAX_CLIENTS 4
+#define SLIPPI_PORT 51441
 
 #define HANDSHAKE_MSG_BUF_SIZE 128
 #define HANDSHAKE_TYPE 1
@@ -25,11 +31,10 @@ class SlippiSocket
 {
 public:
     // Fragmented data that hasn't yet fully arrived
-    std::vector<char> m_incoming_buffer;
-    u32 m_outgoing_fragment_index = 0;
     u64 m_cursor = 0;
     bool m_shook_hands = false;
     bool m_in_game = false;
+    ENetPeer *m_peer = NULL;
 };
 
 class SlippicommServer
@@ -69,7 +74,7 @@ public:
     };
 
   private:
-    std::map<SOCKET, std::shared_ptr<SlippiSocket>> m_sockets;
+    std::map<u16, std::shared_ptr<SlippiSocket>> m_sockets;
     bool m_stop_socket_thread;
     std::vector< std::vector<u8> > m_event_buffer;
     std::vector< std::vector<u8> > m_menu_event_buffer;
@@ -104,7 +109,7 @@ public:
     //  Returns the highest socket value, which is required by select()
     SOCKET buildFDSet(fd_set *read_fds, fd_set *write_fds);
     // Handle an incoming message on a socket
-    void handleMessage(SOCKET socket);
+    void handleMessage(char *buffer, u32 length, u16 peer_id);
     // Send keepalive messages to all clients
     void writeKeepalives();
     // Send broadcast advertisement of the slippi server

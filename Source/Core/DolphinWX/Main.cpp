@@ -38,7 +38,7 @@
 #include "Core/HW/Wiimote.h"
 #include "Core/Host.h"
 #include "Core/Movie.h"
-#include "Core/Slippi/SlippicommServer.h"
+#include "Core/Slippi/SlippiSpectate.h"
 
 #include "DolphinWX/Debugger/CodeWindow.h"
 #include "DolphinWX/Debugger/JitWindow.h"

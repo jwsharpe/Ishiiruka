@@ -760,7 +760,7 @@
     <ClCompile Include="Slippi\SlippiReplayComm.cpp">
       <Filter>Slippi</Filter>
     </ClCompile>
-    <ClCompile Include="Slippi\SlippicommServer.cpp">
+    <ClCompile Include="Slippi\SlippiSpectate.cpp">
       <Filter>Slippi</Filter>
     </ClCompile>
     <ClCompile Include="SlippiTimer.cpp">
@@ -1325,7 +1325,7 @@
     <ClInclude Include="Slippi\SlippiReplayComm.h">
       <Filter>Slippi</Filter>
     </ClInclude>
-    <ClInclude Include="Slippi\SlippicommServer.h">
+    <ClInclude Include="Slippi\SlippiSpectate.h">
       <Filter>Slippi</Filter>
     </ClInclude>
     <ClInclude Include="SlippiPlayback.h">

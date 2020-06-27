@@ -651,6 +651,8 @@ if(ANDROID)
 	include_directories(Source/Android)
 endif()
 
+list(APPEND LIBS protobuf)
+
 ########################################
 # Process externals and setup their include directories
 #
