@@ -76,14 +76,13 @@ public:
   private:
     std::map<u16, std::shared_ptr<SlippiSocket>> m_sockets;
     bool m_stop_socket_thread;
-    std::vector< std::vector<u8> > m_event_buffer;
+    std::vector<std::string> m_event_buffer;
     std::vector< std::vector<u8> > m_menu_event_buffer;
     std::mutex m_event_buffer_mutex;
     std::thread m_socketThread;
     SOCKET m_server_fd;
-    std::mutex m_write_time_mutex;
-    std::chrono::system_clock::time_point m_last_write_time;
     std::chrono::system_clock::time_point m_last_broadcast_time;
+    std::string m_broadcast_message;
     SOCKET m_broadcast_socket;
     struct sockaddr_in m_broadcastAddr;
     const std::vector<u8> m_handshake_type_vec{105, 4, 116, 121, 112, 101, 85, 1};
@@ -103,13 +102,8 @@ public:
 
     // Server thread. Accepts new incoming connections and goes back to sleep
     void SlippicommSocketThread(void);
-    // Helper for closing sockets in a cross-compatible way
-    int sockClose(SOCKET socket);
-    // Build the set of file descriptors that select() needs
-    //  Returns the highest socket value, which is required by select()
-    SOCKET buildFDSet(fd_set *read_fds, fd_set *write_fds);
     // Handle an incoming message on a socket
-    void handleMessage(char *buffer, u32 length, u16 peer_id);
+    void handleMessage(u8 *buffer, u32 length, u16 peer_id);
     // Send keepalive messages to all clients
     void writeKeepalives();
     // Send broadcast advertisement of the slippi server

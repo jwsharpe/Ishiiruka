@@ -26,12 +26,6 @@ void SlippicommServer::write(u8 *payload, u32 length)
         return;
     }
 
-    // Keep track of the latest time we wrote data.
-    //  So that we can know when to send keepalives later
-    m_write_time_mutex.lock();
-    m_last_write_time = std::chrono::system_clock::now();
-    m_write_time_mutex.unlock();
-
     m_event_buffer_mutex.lock();
     u32 cursor = (u32)m_event_buffer.size();
     u64 offset = m_cursor_offset;
@@ -124,125 +118,70 @@ void SlippicommServer::writeMenuEvent(u8 *payload, u32 length)
 
 void SlippicommServer::writeEvents(SOCKET socket)
 {
-    // Get the cursor for this socket
-    u64 cursor = m_sockets[socket]->m_cursor;
-
-    // Loop through each event that needs to be sent
-    //  send all the events starting at their cursor
-    m_event_buffer_mutex.lock();
-
-    std::vector< std::vector<u8>> *buffer_ptr;
-
-    // Are we pulling from the game events buffer or the menu events buffer?
-    if(!m_sockets[socket]->m_in_game)
-    {
-      buffer_ptr = &m_menu_event_buffer;
-    }
-    else
-    {
-      buffer_ptr = &m_event_buffer;
-    }
-
-    for(u64 i = cursor; i < (*buffer_ptr).size(); i++)
-    {
-        u32 fragment_index = m_sockets[socket]->m_outgoing_fragment_index;
-        int32_t byteswritten = send(socket,
-          (char*)(*buffer_ptr)[i].data() + fragment_index,
-          (int)(*buffer_ptr)[i].size() - fragment_index, 0);
-
-        // There are three possible results from a send() call.
-        //  1) All the data was sent.
-        //      Keep the data coming
-        //  2) Partial data was sent, and this would block.
-        //      Stop sending data for now. Save the partial fragment
-        //  3) The socket is broken
-        //      Kill the socket
-
-        // We didn't send all the data. This means result #2 or #3
-        if(byteswritten < (int32_t)((*buffer_ptr)[i].size() - fragment_index))
-        {
-            // Is this just a blocking error?
-            if(errno == EWOULDBLOCK || byteswritten >= 0)
-            {
-                // Update the index to represent the bytes that DID get sent
-                m_sockets[socket]->m_outgoing_fragment_index += byteswritten;
-            }
-            else {
-                // Kill the socket
-                sockClose(socket);
-                m_sockets.erase(socket);
-            }
-            // In both error cases, we have to return. No more data to send
-            m_event_buffer_mutex.unlock();
-            return;
-        }
-        // Result #1. Keep the data coming with a new event
-        m_sockets[socket]->m_outgoing_fragment_index = 0;
-        m_sockets[socket]->m_cursor++;
-    }
-
-    // If the socket is all caught up, sync them up the right in_game status
-    if(m_sockets[socket]->m_cursor >= (*buffer_ptr).size())
-    {
-      m_sockets[socket]->m_in_game = m_in_game;
-    }
-
-    m_event_buffer_mutex.unlock();
-}
-
-// Helper for closing sockets in a cross-compatible way
-int SlippicommServer::sockClose(SOCKET sock)
-{
-    int status = 0;
-
-    #ifdef _WIN32
-        status = shutdown(sock, SD_BOTH);
-    #else
-        status = close(sock);
-    #endif
-
-    return status;
-}
-
-SOCKET SlippicommServer::buildFDSet(fd_set *read_fds, fd_set *write_fds)
-{
-    // Keep track of the currently largest FD
-    SOCKET maxFD = m_server_fd;
-    FD_ZERO(read_fds);
-    FD_ZERO(write_fds);
-    FD_SET(m_server_fd, read_fds);
-
-    // Read from the sockets list
-    std::map<SOCKET, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
-    while(it != m_sockets.end())
-    {
-        FD_SET(it->first, read_fds);
-        maxFD = std::max(maxFD, it->first);
-
-        // Only add a socket to the write list if it's behind on events
-        m_event_buffer_mutex.lock();
-        u32 event_count = (u32)m_event_buffer.size();
-        if(!m_sockets[it->first]->m_in_game)
-        {
-          event_count = (u32)m_menu_event_buffer.size();
-        }
-
-        m_event_buffer_mutex.unlock();
-        // reset cursor if it's > event buffer size
-        //  This will happen when a new game starts
-        //  or some weird error. In both cases, starting over is right
-        if(m_sockets[it->first]->m_cursor > event_count)
-        {
-            m_sockets[it->first]->m_cursor = 0;
-        }
-        if(m_sockets[it->first]->m_cursor < event_count)
-        {
-            FD_SET(it->first, write_fds);
-        }
-        it++;
-    }
-
-    return maxFD;
+    // // Get the cursor for this socket
+    // u64 cursor = m_sockets[socket]->m_cursor;
+    //
+    // // Loop through each event that needs to be sent
+    // //  send all the events starting at their cursor
+    // m_event_buffer_mutex.lock();
+    //
+    // std::vector< std::vector<u8>> *buffer_ptr;
+    //
+    // // Are we pulling from the game events buffer or the menu events buffer?
+    // if(!m_sockets[socket]->m_in_game)
+    // {
+    //   buffer_ptr = &m_menu_event_buffer;
+    // }
+    // else
+    // {
+    //   buffer_ptr = &m_event_buffer;
+    // }
+    //
+    // for(u64 i = cursor; i < (*buffer_ptr).size(); i++)
+    // {
+    //     u32 fragment_index = m_sockets[socket]->m_outgoing_fragment_index;
+    //     int32_t byteswritten = send(socket,
+    //       (char*)(*buffer_ptr)[i].data() + fragment_index,
+    //       (int)(*buffer_ptr)[i].size() - fragment_index, 0);
+    //
+    //     // There are three possible results from a send() call.
+    //     //  1) All the data was sent.
+    //     //      Keep the data coming
+    //     //  2) Partial data was sent, and this would block.
+    //     //      Stop sending data for now. Save the partial fragment
+    //     //  3) The socket is broken
+    //     //      Kill the socket
+    //
+    //     // We didn't send all the data. This means result #2 or #3
+    //     if(byteswritten < (int32_t)((*buffer_ptr)[i].size() - fragment_index))
+    //     {
+    //         // Is this just a blocking error?
+    //         if(errno == EWOULDBLOCK || byteswritten >= 0)
+    //         {
+    //             // Update the index to represent the bytes that DID get sent
+    //             m_sockets[socket]->m_outgoing_fragment_index += byteswritten;
+    //         }
+    //         else {
+    //             // Kill the socket
+    //             sockClose(socket);
+    //             m_sockets.erase(socket);
+    //         }
+    //         // In both error cases, we have to return. No more data to send
+    //         m_event_buffer_mutex.unlock();
+    //         return;
+    //     }
+    //     // Result #1. Keep the data coming with a new event
+    //     m_sockets[socket]->m_outgoing_fragment_index = 0;
+    //     m_sockets[socket]->m_cursor++;
+    // }
+    //
+    // // If the socket is all caught up, sync them up the right in_game status
+    // if(m_sockets[socket]->m_cursor >= (*buffer_ptr).size())
+    // {
+    //   m_sockets[socket]->m_in_game = m_in_game;
+    // }
+    //
+    // m_event_buffer_mutex.unlock();
 }
 
 std::vector<u8> SlippicommServer::uint16ToVector(u16 num)
@@ -298,7 +237,7 @@ void SlippicommServer::startGame()
     m_in_game = true;
 
     // If the socket is all caught up, sync them up the right in_game status
-    std::map<SOCKET, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
+    std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
     for(; it != m_sockets.end(); it++)
     {
       if(it->second->m_cursor >= m_menu_event_buffer.size())
@@ -323,7 +262,7 @@ void SlippicommServer::endGame()
     m_in_game = false;
 
     // If the socket is all caught up, sync them up the right in_game status
-    std::map<SOCKET, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
+    std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
     for(; it != m_sockets.end(); it++)
     {
       if(it->second->m_cursor >= m_event_buffer.size())
@@ -342,13 +281,7 @@ SlippicommServer::SlippicommServer()
         return;
     }
 
-    #ifdef _WIN32
-    WSADATA wsa_data;
-    WSAStartup(MAKEWORD(2,2), &wsa_data);
-    #endif
-
     // Init some timestamps
-    m_last_write_time = std::chrono::system_clock::now();
     m_last_broadcast_time = std::chrono::system_clock::now();
 
     // Spawn thread for socket listener
@@ -361,35 +294,7 @@ SlippicommServer::~SlippicommServer()
     // The socket thread will be blocked waiting for input
     // So to wake it up, let's connect to the socket!
     m_stop_socket_thread = true;
-
-    SOCKET sock = 0;
-    struct sockaddr_in serv_addr;
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-    {
-        WARN_LOG(SLIPPI, "Failed to shut down Slippi networking thread");
-        return;
-    }
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(SLIPPI_PORT);
-
-    // Convert IPv4 and IPv6 addresses from text to binary form
-    if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)
-    {
-        WARN_LOG(SLIPPI, "Failed to shut down Slippi networking thread");
-        return;
-    }
-
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
-    {
-        WARN_LOG(SLIPPI, "Failed to shut down Slippi networking thread");
-        return;
-    }
-
     m_socketThread.join();
-    #ifdef _WIN32
-    WSACleanup();
-    #endif
 }
 
 void SlippicommServer::writeKeepalives()
@@ -430,21 +335,11 @@ void SlippicommServer::writeKeepalives()
 
 void SlippicommServer::writeBroadcast()
 {
-    // Broadcast message structure
-    struct broadcast_msg broadcast;
-
-    const char* nickname = SConfig::GetInstance().m_slippiConsoleName.c_str();
-    char cmd[] = "SLIP_READY";
-
-    memcpy(broadcast.cmd, cmd, sizeof(broadcast.cmd));
-    memset(broadcast.mac_addr, 0, sizeof(broadcast.mac_addr));
-    strncpy(broadcast.nickname, nickname, sizeof(broadcast.nickname));
-
-    sendto(m_broadcast_socket, (char*)&broadcast, sizeof(broadcast), 0,
+    sendto(m_broadcast_socket, (char*)&m_broadcast_message, m_broadcast_message.length(), 0,
         (struct sockaddr *)&m_broadcastAddr, sizeof(m_broadcastAddr));
 }
 
-void SlippicommServer::handleMessage(char *buffer, u32 length, u16 peer_id)
+void SlippicommServer::handleMessage(u8 *buffer, u32 length, u16 peer_id)
 {
     // Unpack the message
     slippicomm::SlippiMessage message;
@@ -513,6 +408,31 @@ void SlippicommServer::handleMessage(char *buffer, u32 length, u16 peer_id)
 
 void SlippicommServer::SlippicommSocketThread(void)
 {
+
+    m_broadcast_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    int broadcastEnable=1;
+    if(setsockopt(m_broadcast_socket, SOL_SOCKET, SO_BROADCAST,
+       (char*)&broadcastEnable, sizeof(broadcastEnable)))
+    {
+        WARN_LOG(SLIPPI, "Failed configuring Slippi braodcast socket");
+        return;
+    }
+
+    // Setup some more broadcast port variables
+    memset(&m_broadcastAddr, 0, sizeof(m_broadcastAddr));
+    m_broadcastAddr.sin_family = AF_INET;
+    m_broadcastAddr.sin_addr.s_addr = inet_addr("255.255.255.255");
+    m_broadcastAddr.sin_port = htons(20582);
+
+    // Setup the broadcast message
+    //  It never changes, so let's just do this once
+    slippicomm::SlippiMessage reply;
+    slippicomm::Advertisement *advert = new slippicomm::Advertisement();
+    advert->set_nick(SConfig::GetInstance().m_slippiConsoleName);
+    // Reply takes ownership of the pointer here. So don't delete the object
+    reply.set_allocated_advertisement(advert);
+    reply.SerializeToString(&m_broadcast_message);
+
     if (enet_initialize () != 0) {
         // TODO replace all printfs with logs
         printf("An error occurred while initializing ENet.\n");
@@ -563,7 +483,7 @@ void SlippicommServer::SlippicommSocketThread(void)
                 }
                 case ENET_EVENT_TYPE_RECEIVE:
                 {
-                    handleMessage(event.peer->data, event.peer->dataLength, event.peer->outgoingPeerID);
+                    handleMessage(event.packet->data, event.packet->dataLength, event.peer->outgoingPeerID);
                     /* Clean up the packet now that we're done using it. */
                     enet_packet_destroy (event.packet);
 
