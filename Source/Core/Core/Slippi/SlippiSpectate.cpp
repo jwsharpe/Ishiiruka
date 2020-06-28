@@ -92,14 +92,15 @@ void SlippicommServer::writeEvents(u16 peer_id)
         m_event_buffer_mutex.lock();
         for(u64 i = cursor; i < m_event_buffer.size(); i++)
         {
-            std::cout << "sending game event at cursor " << i << std::endl;
             ENetPacket *packet = enet_packet_create(m_event_buffer[i].data(),
                                                     m_event_buffer[i].size(),
                                                     ENET_PACKET_FLAG_RELIABLE);
             // Batch for sending
             enet_peer_send(m_sockets[peer_id]->m_peer, 0, packet);
+            m_sockets[peer_id]->m_cursor++;
         }
         m_event_buffer_mutex.unlock();
+
     }
     else {
         if(!m_sockets[peer_id]->m_sent_menu)
@@ -114,8 +115,6 @@ void SlippicommServer::writeEvents(u16 peer_id)
             // Record for the peer that it was sent
             m_sockets[peer_id]->m_sent_menu = true;
             m_event_buffer_mutex.unlock();
-
-            m_sockets[peer_id]->m_cursor++;
         }
     }
 
@@ -203,6 +202,14 @@ void SlippicommServer::startGame()
     }
     m_event_buffer.clear();
     m_in_game = true;
+
+    // TODO m_sockets is probably unsafe here :/
+    std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
+    for(; it != m_sockets.end(); it++)
+    {
+        it->second->m_cursor = 0;
+    }
+
     m_event_buffer_mutex.unlock();
 }
 
