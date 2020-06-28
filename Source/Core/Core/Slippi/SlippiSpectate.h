@@ -95,8 +95,6 @@ public:
     void SlippicommSocketThread(void);
     // Handle an incoming message on a socket
     void handleMessage(u8 *buffer, u32 length, u16 peer_id);
-    // Send keepalive messages to all clients
-    void writeKeepalives();
     // Send broadcast advertisement of the slippi server
     void writeBroadcast();
     // Catch up given socket to the latest events
