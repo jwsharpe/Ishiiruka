@@ -36,13 +36,13 @@ public:
     ENetPeer *m_peer = NULL;
 };
 
-class SlippicommServer
+class SlippiSpectateServer
 {
 public:
     // Singleton. Get an instance of the class here
     //   When SConfig::GetInstance().m_slippiNetworkingOutput is false, this
     //  instance exists and is callable, but does nothing
-    static SlippicommServer* getInstance();
+    static SlippiSpectateServer* getInstance();
 
     // Write the given game payload data to all listening sockets
     void write(u8 *payload, u32 length);
@@ -62,8 +62,8 @@ public:
     void endGame();
 
     // Don't try to copy the class. Delete those functions
-    SlippicommServer(SlippicommServer const&) = delete;
-    void operator=(SlippicommServer const&)  = delete;
+    SlippiSpectateServer(SlippiSpectateServer const&) = delete;
+    void operator=(SlippiSpectateServer const&)  = delete;
 
   private:
     std::map<u16, std::shared_ptr<SlippiSocket>> m_sockets;
@@ -87,8 +87,8 @@ public:
     bool m_in_game = false;
 
     // Private constructor to avoid making another instance
-    SlippicommServer();
-    ~SlippicommServer();
+    SlippiSpectateServer();
+    ~SlippiSpectateServer();
 
     // Server thread. Accepts new incoming connections and goes back to sleep
     void SlippicommSocketThread(void);

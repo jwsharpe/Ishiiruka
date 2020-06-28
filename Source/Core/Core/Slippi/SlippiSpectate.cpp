@@ -11,14 +11,14 @@
 #include <errno.h>
 #endif
 
-SlippicommServer* SlippicommServer::getInstance()
+SlippiSpectateServer* SlippiSpectateServer::getInstance()
 {
-    static SlippicommServer instance; // Guaranteed to be destroyed.
+    static SlippiSpectateServer instance; // Guaranteed to be destroyed.
                                     // Instantiated on first use.
     return &instance;
 }
 
-void SlippicommServer::write(u8 *payload, u32 length)
+void SlippiSpectateServer::write(u8 *payload, u32 length)
 {
     if(!SConfig::GetInstance().m_slippiNetworkingOutput)
     {
@@ -48,7 +48,7 @@ void SlippicommServer::write(u8 *payload, u32 length)
     m_event_buffer_mutex.unlock();
 }
 
-void SlippicommServer::writeMenuEvent(u8 *payload, u32 length)
+void SlippiSpectateServer::writeMenuEvent(u8 *payload, u32 length)
 {
   if(!SConfig::GetInstance().m_slippiNetworkingOutput)
   {
@@ -76,7 +76,7 @@ void SlippicommServer::writeMenuEvent(u8 *payload, u32 length)
   m_event_buffer_mutex.unlock();
 }
 
-void SlippicommServer::writeEvents(u16 peer_id)
+void SlippiSpectateServer::writeEvents(u16 peer_id)
 {
     m_event_buffer_mutex.lock();
     bool in_game = m_in_game;
@@ -123,7 +123,7 @@ void SlippicommServer::writeEvents(u16 peer_id)
 //  from the previous game event buffer by now. At least many seconds will have passed
 //  by now, so if a listener is still stuck getting events from the last game,
 //  they will get erroneous data.
-void SlippicommServer::startGame()
+void SlippiSpectateServer::startGame()
 {
     if(!SConfig::GetInstance().m_slippiNetworkingOutput)
     {
@@ -148,7 +148,7 @@ void SlippicommServer::startGame()
     m_event_buffer_mutex.unlock();
 }
 
-void SlippicommServer::endGame()
+void SlippiSpectateServer::endGame()
 {
     if(!SConfig::GetInstance().m_slippiNetworkingOutput)
     {
@@ -161,7 +161,7 @@ void SlippicommServer::endGame()
     m_event_buffer_mutex.unlock();
 }
 
-SlippicommServer::SlippicommServer()
+SlippiSpectateServer::SlippiSpectateServer()
 {
     if(!SConfig::GetInstance().m_slippiNetworkingOutput)
     {
@@ -173,10 +173,10 @@ SlippicommServer::SlippicommServer()
 
     // Spawn thread for socket listener
     m_stop_socket_thread = false;
-    m_socketThread = std::thread(&SlippicommServer::SlippicommSocketThread, this);
+    m_socketThread = std::thread(&SlippiSpectateServer::SlippicommSocketThread, this);
 }
 
-SlippicommServer::~SlippicommServer()
+SlippiSpectateServer::~SlippiSpectateServer()
 {
     // The socket thread will be blocked waiting for input
     // So to wake it up, let's connect to the socket!
@@ -184,14 +184,14 @@ SlippicommServer::~SlippicommServer()
     m_socketThread.join();
 }
 
-void SlippicommServer::writeBroadcast()
+void SlippiSpectateServer::writeBroadcast()
 {
     sendto(m_broadcast_socket, (char*)m_broadcast_message.data(), m_broadcast_message.length(), 0,
         (struct sockaddr *)&m_broadcastAddr, sizeof(m_broadcastAddr));
     m_last_broadcast_time = std::chrono::system_clock::now();
 }
 
-void SlippicommServer::handleMessage(u8 *buffer, u32 length, u16 peer_id)
+void SlippiSpectateServer::handleMessage(u8 *buffer, u32 length, u16 peer_id)
 {
     // Unpack the message
     slippicomm::SlippiMessage message;
@@ -254,7 +254,7 @@ void SlippicommServer::handleMessage(u8 *buffer, u32 length, u16 peer_id)
     m_sockets[peer_id]->m_shook_hands = true;
 }
 
-void SlippicommServer::SlippicommSocketThread(void)
+void SlippiSpectateServer::SlippicommSocketThread(void)
 {
     // Setup the broadcast advertisement message and socket
     m_broadcast_socket = socket(AF_INET, SOCK_DGRAM, 0);

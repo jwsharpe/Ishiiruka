@@ -763,6 +763,9 @@
     <ClCompile Include="Slippi\SlippiSpectate.cpp">
       <Filter>Slippi</Filter>
     </ClCompile>
+    <ClCompile Include="Slippi\slippicomm.pb.cc">
+      <Filter>Slippi</Filter>
+    </ClCompile>
     <ClCompile Include="SlippiTimer.cpp">
       <Filter>Slippi</Filter>
     </ClCompile>

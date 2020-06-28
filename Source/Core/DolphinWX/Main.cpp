@@ -210,7 +210,7 @@ bool DolphinApp::OnInit()
     AfterInit();
 
 	// Init the slippicom server thread
-	SlippicommServer *init = SlippicommServer::getInstance();
+	SlippiSpectateServer *init = SlippiSpectateServer::getInstance();
 	init->endGame();
 
 	return true;

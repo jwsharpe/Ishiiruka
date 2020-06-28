@@ -141,7 +141,7 @@ CEXISlippi::CEXISlippi()
 {
 	INFO_LOG(SLIPPI, "EXI SLIPPI Constructor called.");
 
-	m_slippiserver = SlippicommServer::getInstance();
+	m_slippiserver = SlippiSpectateServer::getInstance();
 	user = std::make_unique<SlippiUser>();
 
 	g_playback_status = std::make_unique<SlippiPlaybackStatus>();
