@@ -1,6 +1,5 @@
 #include "SlippiSpectate.h"
 #include "Common/Logging/Log.h"
-#include "nlohmann/json.hpp"
 #include "Common/CommonTypes.h"
 #include <Core/ConfigManager.h>
 
@@ -31,42 +30,16 @@ void SlippicommServer::write(u8 *payload, u32 length)
     u64 offset = m_cursor_offset;
     m_event_buffer_mutex.unlock();
 
-      // Note: This is a bit messy because nlohmann can't be used for this case.
-      //  nlohmann needs the contents to be valid JSON first, and then it can
-      //  read and write it to UBJSON. But arbitrary binary buffers can't be in
-      //  regular JSON, so this doesn't work. :(
-    std::vector<u8> ubjson_header({'{', 'i', '\x04', 't', 'y', 'p', 'e', 'U',
-        '\x02', 'i', '\x07', 'p', 'a', 'y', 'l', 'o', 'a', 'd', '{',});
-    std::vector<u8> cursor_header({'i', '\x03', 'p', 'o', 's', '[','$', 'U', '#', 'U', '\x08'});
-    std::vector<u8> cursor_value = uint64ToVector(offset + cursor);
-    std::vector<u8> next_cursor_header({'i', '\x07', 'n', 'e', 'x', 't', 'P', 'o', 's', '[','$', 'U', '#', 'U', '\x08'});
-    std::vector<u8> next_cursor_value = uint64ToVector(offset + cursor + 1);
-    std::vector<u8> data_field_header({'i', '\x04', 'd', 'a', 't', 'a', '[',
-        '$', 'U', '#', 'I'});
-    std::vector<u8> length_vector = uint16ToVector(length);
-    std::vector<u8> ubjson_footer({'}', '}'});
+    slippicomm::SlippiMessage wrapper;
+    slippicomm::GameEvent *game_event = new slippicomm::GameEvent();
+    game_event->set_cursor(offset+cursor);
+    game_event->set_next_cursor(offset+cursor+1);
+    game_event->set_payload(payload, length);
 
-    // Length of the entire TCP event. Not part of the slippi message per-se
-    u32 event_length = length +
-      (u32)ubjson_header.size() + (u32)cursor_header.size() +
-      (u32)cursor_value.size() + (u32)data_field_header.size() +
-      (u32)next_cursor_value.size() + (u32)next_cursor_header.size() +
-      (u32)length_vector.size() + (u32)ubjson_footer.size();
-    std::vector<u8> event_length_vector = uint32ToVector(event_length);
-
-    // Let's assemble the final buffer that gets written
-    std::vector<u8> buffer;
-    buffer.reserve(event_length);
-    buffer.insert(buffer.end(), event_length_vector.begin(), event_length_vector.end());
-    buffer.insert(buffer.end(), ubjson_header.begin(), ubjson_header.end());
-    buffer.insert(buffer.end(), cursor_header.begin(), cursor_header.end());
-    buffer.insert(buffer.end(), cursor_value.begin(), cursor_value.end());
-    buffer.insert(buffer.end(), next_cursor_header.begin(), next_cursor_header.end());
-    buffer.insert(buffer.end(), next_cursor_value.begin(), next_cursor_value.end());
-    buffer.insert(buffer.end(), data_field_header.begin(), data_field_header.end());
-    buffer.insert(buffer.end(), length_vector.begin(), length_vector.end());
-    buffer.insert(buffer.end(), payload, payload + length);
-    buffer.insert(buffer.end(), ubjson_footer.begin(), ubjson_footer.end());
+    // wrapper takes ownership of the pointer here. So don't delete the object
+    wrapper.set_allocated_game_event(game_event);
+    std::string buffer;
+    wrapper.SerializeToString(&buffer);
 
     // Put this message into the event buffer
     //  This will queue the message up to go out for all clients
@@ -82,42 +55,70 @@ void SlippicommServer::writeMenuEvent(u8 *payload, u32 length)
       return;
   }
 
-  // Note: This is a bit messy because nlohmann can't be used for this case.
-  //  nlohmann needs the contents to be valid JSON first, and then it can
-  //  read and write it to UBJSON. But arbitrary binary buffers can't be in
-  //  regular JSON, so this doesn't work. :(
-  std::vector<u8> ubjson_header({'{', 'i', '\x04', 't', 'y', 'p', 'e', 'U',
-      '\x04', 'i', '\x07', 'p', 'a', 'y', 'l', 'o', 'a', 'd', '{',});
-  std::vector<u8> data_field_header({'i', '\x04', 'd', 'a', 't', 'a', '[',
-      '$', 'U', '#', 'I'});
-  std::vector<u8> length_vector = uint16ToVector(length);
-  std::vector<u8> ubjson_footer({'}', '}'});
+  // Reset the sent menu flag for each peer
+  std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
+  for(; it != m_sockets.end(); it++)
+  {
+      it->second->m_sent_menu = false;
+  }
 
-  // Length of the entire TCP event. Not part of the slippi message per-se
-  u32 event_length = length +
-    (u32)ubjson_header.size() + (u32)data_field_header.size() +
-    (u32)length_vector.size() + (u32)ubjson_footer.size();
-  std::vector<u8> event_length_vector = uint32ToVector(event_length);
+  slippicomm::SlippiMessage wrapper;
+  slippicomm::MenuEvent *menu_event = new slippicomm::MenuEvent();
+  menu_event->set_payload(payload, length);
 
-  // Let's assemble the final buffer that gets written
-  std::vector<u8> buffer;
-  buffer.reserve(event_length);
-  buffer.insert(buffer.end(), event_length_vector.begin(), event_length_vector.end());
-  buffer.insert(buffer.end(), ubjson_header.begin(), ubjson_header.end());
-  buffer.insert(buffer.end(), data_field_header.begin(), data_field_header.end());
-  buffer.insert(buffer.end(), length_vector.begin(), length_vector.end());
-  buffer.insert(buffer.end(), payload, payload + length);
-  buffer.insert(buffer.end(), ubjson_footer.begin(), ubjson_footer.end());
+  // wrapper takes ownership of the pointer here. So don't delete the object
+  wrapper.set_allocated_menu_event(menu_event);
 
   // Put this message into the menu event buffer
   //  This will queue the message up to go out for all clients
   m_event_buffer_mutex.lock();
-  m_menu_event_buffer.push_back(buffer);
+  wrapper.SerializeToString(&m_menu_event);
   m_event_buffer_mutex.unlock();
 }
 
-void SlippicommServer::writeEvents(SOCKET socket)
+void SlippicommServer::writeEvents(u16 peer_id)
 {
+    m_event_buffer_mutex.lock();
+    bool in_game = m_in_game;
+    m_event_buffer_mutex.unlock();
+
+    if(in_game)
+    {
+        // Get the cursor for this socket
+        u64 cursor = m_sockets[peer_id]->m_cursor;
+
+        // Loop through each event that needs to be sent
+        //  send all the events starting at their cursor
+        m_event_buffer_mutex.lock();
+        for(u64 i = cursor; i < m_event_buffer.size(); i++)
+        {
+            std::cout << "sending game event at cursor " << i << std::endl;
+            ENetPacket *packet = enet_packet_create(m_event_buffer[i].data(),
+                                                    m_event_buffer[i].size(),
+                                                    ENET_PACKET_FLAG_RELIABLE);
+            // Batch for sending
+            enet_peer_send(m_sockets[peer_id]->m_peer, 0, packet);
+        }
+        m_event_buffer_mutex.unlock();
+    }
+    else {
+        if(!m_sockets[peer_id]->m_sent_menu)
+        {
+            // We're in a menu, so send the menu event
+            m_event_buffer_mutex.lock();
+            ENetPacket *packet = enet_packet_create(m_menu_event.data(),
+                                                    m_menu_event.length(),
+                                                    ENET_PACKET_FLAG_RELIABLE);
+            // Batch for sending
+            enet_peer_send(m_sockets[peer_id]->m_peer, 0, packet);
+            // Record for the peer that it was sent
+            m_sockets[peer_id]->m_sent_menu = true;
+            m_event_buffer_mutex.unlock();
+
+            m_sockets[peer_id]->m_cursor++;
+        }
+    }
+
     // // Get the cursor for this socket
     // u64 cursor = m_sockets[socket]->m_cursor;
     //
@@ -184,39 +185,6 @@ void SlippicommServer::writeEvents(SOCKET socket)
     // m_event_buffer_mutex.unlock();
 }
 
-std::vector<u8> SlippicommServer::uint16ToVector(u16 num)
-{
-    u8 byte0 = num >> 8;
-    u8 byte1 = num & 0xFF;
-
-    return std::vector<u8>({byte0, byte1});
-}
-
-std::vector<u8> SlippicommServer::uint64ToVector(u64 num)
-{
-    u8 byte0 = num >> 56;
-    u8 byte1 = (num >> 48) & 0xFF;
-    u8 byte2 = (num >> 40) & 0xFF;
-    u8 byte3 = (num >> 32) & 0xFF;
-    u8 byte4 = (num >> 24) & 0xFF;
-    u8 byte5 = (num >> 16) & 0xFF;
-    u8 byte6 = (num >> 8) & 0xFF;
-    u8 byte7 = num & 0xFF;
-
-    return std::vector<u8>{byte0, byte1, byte2, byte3, byte4, byte5, byte6, byte7};
-}
-
-std::vector<u8> SlippicommServer::uint32ToVector(u32 num)
-{
-    u8 byte0 = num >> 24;
-    u8 byte1 = (num & 0xFF0000) >> 16;
-    u8 byte2 = (num & 0xFF00) >> 8;
-    u8 byte3 = num & 0xFF;
-
-    return std::vector<u8>({byte0, byte1, byte2, byte3});
-}
-
-
 // We assume, for the sake of simplicity, that all clients have finished reading
 //  from the previous game event buffer by now. At least many seconds will have passed
 //  by now, so if a listener is still stuck getting events from the last game,
@@ -235,18 +203,6 @@ void SlippicommServer::startGame()
     }
     m_event_buffer.clear();
     m_in_game = true;
-
-    // If the socket is all caught up, sync them up the right in_game status
-    std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
-    for(; it != m_sockets.end(); it++)
-    {
-      if(it->second->m_cursor >= m_menu_event_buffer.size())
-      {
-        it->second->m_in_game = m_in_game;
-        it->second->m_cursor = m_cursor_offset;
-      }
-    }
-
     m_event_buffer_mutex.unlock();
 }
 
@@ -258,19 +214,8 @@ void SlippicommServer::endGame()
     }
 
     m_event_buffer_mutex.lock();
-    m_menu_event_buffer.clear();
+    m_menu_event.clear();
     m_in_game = false;
-
-    // If the socket is all caught up, sync them up the right in_game status
-    std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
-    for(; it != m_sockets.end(); it++)
-    {
-      if(it->second->m_cursor >= m_event_buffer.size())
-      {
-        it->second->m_in_game = m_in_game;
-      }
-    }
-
     m_event_buffer_mutex.unlock();
 }
 
@@ -402,7 +347,6 @@ void SlippicommServer::handleMessage(u8 *buffer, u32 length, u16 peer_id)
 
 
     // Put the client in the right in_game state
-    m_sockets[peer_id]->m_in_game = m_in_game;
     m_sockets[peer_id]->m_shook_hands = true;
 }
 
@@ -463,8 +407,17 @@ void SlippicommServer::SlippicommSocketThread(void)
             return;
         }
 
+        std::map<u16, std::shared_ptr<SlippiSocket>>::iterator it = m_sockets.begin();
+        for(; it != m_sockets.end(); it++)
+        {
+            if(it->second->m_shook_hands)
+            {
+                writeEvents(it->first);
+            }
+        }
+
         ENetEvent event;
-        while (enet_host_service (server, &event, 0) > 0)
+        while (enet_host_service (server, &event, 1) > 0)
         {
             switch (event.type)
             {
@@ -498,8 +451,8 @@ void SlippicommServer::SlippicommSocketThread(void)
                 }
                 default:
                 {
-                  printf ("%s Unknown message came in.\n", event.peer -> data);
-                  break;
+                    printf ("%s Unknown message came in.\n", event.peer -> data);
+                    break;
                 }
             }
         }

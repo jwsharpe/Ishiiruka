@@ -30,10 +30,9 @@ typedef int SOCKET;
 class SlippiSocket
 {
 public:
-    // Fragmented data that hasn't yet fully arrived
     u64 m_cursor = 0;
+    bool m_sent_menu = false;
     bool m_shook_hands = false;
-    bool m_in_game = false;
     ENetPeer *m_peer = NULL;
 };
 
@@ -66,27 +65,19 @@ public:
     SlippicommServer(SlippicommServer const&) = delete;
     void operator=(SlippicommServer const&)  = delete;
 
-    struct broadcast_msg
-    {
-        char	cmd[10];
-        u8		mac_addr[6];	// Wi-Fi interface MAC address
-        char	nickname[32];	// Console nickname
-    };
-
   private:
     std::map<u16, std::shared_ptr<SlippiSocket>> m_sockets;
     bool m_stop_socket_thread;
     std::vector<std::string> m_event_buffer;
-    std::vector< std::vector<u8> > m_menu_event_buffer;
+    std::string m_menu_event;
     std::mutex m_event_buffer_mutex;
+
     std::thread m_socketThread;
     SOCKET m_server_fd;
     std::chrono::system_clock::time_point m_last_broadcast_time;
     std::string m_broadcast_message;
     SOCKET m_broadcast_socket;
     struct sockaddr_in m_broadcastAddr;
-    const std::vector<u8> m_handshake_type_vec{105, 4, 116, 121, 112, 101, 85, 1};
-    const u32 m_keepalive_len = 167772160; // htonl((u32)ubjson_keepalive.size());
     // In order to emulate Wii behavior, the cursor position should be strictly
     //  increasing. But internally, we need to index arrays by the cursor value.
     //  To solve this, we keep an "offset" value that is added to all outgoing
@@ -110,11 +101,5 @@ public:
     void writeBroadcast();
     // Catch up given socket to the latest events
     //  Does nothing if they're already caught up.
-    //  Quits out early if the call would block. So this isn't guaranteed to
-    //    actually send the data. Best-effort
-    void writeEvents(SOCKET socket);
-
-    std::vector<u8> uint64ToVector(u64 num);
-    std::vector<u8> uint32ToVector(u32 num);
-    std::vector<u8> uint16ToVector(u16 num);
+    void writeEvents(u16 peer_id);
 };

@@ -33,7 +33,5 @@ message GameEvent {
 }
 
 message MenuEvent {
-  uint32 cursor = 1;
-  uint32 next_cursor = 2;
-  bytes payload = 3;
+  bytes payload = 1;
 }
