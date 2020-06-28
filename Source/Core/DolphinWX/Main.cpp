@@ -24,6 +24,8 @@
 #include <wx/utils.h>
 #include <wx/window.h>
 
+#include <sqlite3.h>
+
 #include "Common/CPUDetect.h"
 #include "Common/CommonPaths.h"
 #include "Common/CommonTypes.h"
@@ -315,6 +317,23 @@ void DolphinApp::AfterInit()
 {
 	if (!m_batch_mode)
 		main_frame->UpdateGameList();
+
+	sqlite3 *db;
+	char *zErrMsg = 0;
+	int rc;
+
+	rc = sqlite3_open("test.db", &db);
+
+
+
+	// if( rc ) {
+	// 	fprintf(stderr, "Can't open database: %s\n", sqlite3_errmsg(db));
+	// 	wxMessageBox("closed", "okay", wxYES_NO, main_frame);
+	// } else {
+	// 	fprintf(stderr, "Opened database successfully\n");
+	// 	wxMessageBox("opened", "okay", wxYES_NO, main_frame);
+	// }
+	// sqlite3_close(db);
 
 	if (SConfig::GetInstance().m_analytics_will_prompt && !SConfig::GetInstance().m_analytics_permission_asked)
 	{

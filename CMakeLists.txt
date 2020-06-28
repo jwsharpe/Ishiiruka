@@ -338,6 +338,18 @@ if(APPLE)
 	find_library(OPENGL_LIBRARY OpenGL)
 endif()
 
+ADD_LIBRARY(m_MAIN 
+   ./Source/Core/DolphinWX/Main.cpp
+   ./Source/Core/DolphinWX/Main.h
+)
+message(finding SQLite3 libraries)
+find_package (SQLite3)
+if (SQLITE3_FOUND)
+  message(finding SQLite3 libraries - found)
+  include_directories(${SQLITE3_INCLUDE_DIRS})
+  target_link_libraries (m_MAIN ${SQLITE3_LIBRARIES})
+endif (SQLITE3_FOUND)
+
 if(WIN32)
 	add_definitions(-D_SECURE_SCL=0)
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
@@ -1049,6 +1061,7 @@ endif()
 enable_testing()
 add_custom_target(unittests)
 add_custom_command(TARGET unittests POST_BUILD COMMAND ${CMAKE_CTEST_COMMAND})
+
 
 
 ########################################
