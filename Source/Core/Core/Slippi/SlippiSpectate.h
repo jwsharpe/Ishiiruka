@@ -73,7 +73,6 @@ public:
     std::mutex m_event_buffer_mutex;
 
     std::thread m_socketThread;
-    SOCKET m_server_fd;
     std::chrono::system_clock::time_point m_last_broadcast_time;
     std::string m_broadcast_message;
     SOCKET m_broadcast_socket;
