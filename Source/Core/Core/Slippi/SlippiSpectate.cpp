@@ -181,7 +181,6 @@ SlippiSpectateServer::~SlippiSpectateServer()
     // The socket thread will be blocked waiting for input
     // So to wake it up, let's connect to the socket!
     m_stop_socket_thread = true;
-    m_socketThread.join();
 }
 
 void SlippiSpectateServer::writeBroadcast()
