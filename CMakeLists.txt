@@ -678,18 +678,6 @@ include_directories(Externals/semver/include)
 add_subdirectory(Externals/open-vcdiff)
 include_directories(Externals/open-vcdiff)
 
-# Protobuf dependency. Use global or local one?
-if(USE_SHARED_PROTOBUF)
-	set(Protobuf_DEBUG TRUE)
-	find_package(Protobuf REQUIRED)
-	if(Protobuf_VERSION VERSION_LESS 3.0.0)
-		message("Installed version of protobuf is too old. Use at least 3.0.0")
-	endif()
-	set(Protobuf_USE_STATIC_LIBS ON)
-	set(PROTOBUF_SOURCE_DIRECTORY "${PROJECT_SOURCE_DIR}/Source/Core/Core/Slippi/")
-	protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTOBUF_SOURCE_DIRECTORY}/slippicomm.proto)
-endif()
-
 if(USE_SHARED_ENET)
 	check_lib(ENET libenet enet enet/enet.h QUIET)
 	include(CheckSymbolExists)

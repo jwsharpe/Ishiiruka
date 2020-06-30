@@ -1,3 +1,4 @@
+add_subdirectory(Slippi)
 set(SRCS	ActionReplay.cpp
 			Analytics.cpp
 			ARDecrypt.cpp
@@ -191,7 +192,6 @@ set(SRCS	ActionReplay.cpp
 			PowerPC/JitILCommon/JitILBase_Integer.cpp
 			Slippi/SlippiReplayComm.cpp
 			Slippi/SlippiSpectate.cpp
-			Slippi/slippicomm.pb.cc
 			Slippi/SlippiGameFileLoader.cpp
 			Slippi/SlippiMatchmaking.cpp
 			Slippi/SlippiNetplay.cpp
