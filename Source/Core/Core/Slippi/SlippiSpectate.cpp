@@ -253,6 +253,46 @@ void SlippiSpectateServer::handleMessage(u8 *buffer, u32 length, u16 peer_id)
     m_sockets[peer_id]->m_shook_hands = true;
 }
 
+void SlippiMatchmaking::sendHolePunchMsg(std::string remoteIp, u16 remotePort, u16 localPort)
+{
+  	// We are explicitly setting the client address because we are trying to utilize our connection
+  	// to the matchmaking service in order to hole punch. This port will end up being the port
+  	// we listen on when we start our server
+  	ENetAddress clientAddr;
+  	clientAddr.host = ENET_HOST_ANY;
+  	clientAddr.port = localPort;
+
+  	auto client = enet_host_create(&clientAddr, 1, 3, 0, 0);
+
+  	if (client == nullptr)
+  	{
+    		// Failed to create client
+    		m_state = ProcessState::ERROR_ENCOUNTERED;
+    		// m_errorMsg = "Failed to start hole punch";
+    		return;
+  	}
+
+  	ENetAddress addr;
+  	enet_address_set_host(&addr, remoteIp.c_str());
+  	addr.port = remotePort;
+
+  	auto server = enet_host_connect(client, &addr, 3, 0);
+
+  	if (server == nullptr)
+  	{
+    		// Failed to connect to server
+    		m_state = ProcessState::ERROR_ENCOUNTERED;
+    		// m_errorMsg = "Failed to start hole punch";
+    		return;
+  	}
+
+  	// Send connect message?
+  	enet_host_flush(client);
+
+  	enet_peer_reset(server);
+  	enet_host_destroy(client);
+}
+
 void SlippiSpectateServer::SlippicommSocketThread(void)
 {
     // Setup the broadcast advertisement message and socket

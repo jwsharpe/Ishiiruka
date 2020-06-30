@@ -99,4 +99,6 @@ public:
     // Catch up given socket to the latest events
     //  Does nothing if they're already caught up.
     void writeEvents(u16 peer_id);
+    // Punch a hold in the NAT to the remote end
+    void sendHolePunchMsg(std::string remoteIp, u16 remotePort, u16 localPort)
 };
